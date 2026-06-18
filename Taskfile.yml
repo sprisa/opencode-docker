@@ -7,7 +7,7 @@ vars:
   REGISTRY: docker.io
   OWNER: sprisa
   IMAGE: opencode
-  REPO: "{{.OWNER}}/{{.IMAGE}}"
+  RELEASE_REPO: "{{.OWNER}}/opencode-docker"
   OCI: "{{.REGISTRY}}/{{.OWNER}}/{{.IMAGE}}"
   VERSION:
     sh: cat version.txt | tr -d '[:space:]'
@@ -19,7 +19,7 @@ tasks:
       - task --list
     silent: true
 
-  update-version:
+  update:
     desc: Fetch latest opencode release version from GitHub and update version.txt
     preconditions:
       - sh: command -v curl >/dev/null
@@ -65,3 +65,15 @@ tasks:
         msg: "Set DOCKER_PASS (use a Docker Hub access token)"
     cmds:
       - "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+
+  publish:
+    desc: "Push the image and create a GitHub Release (run docker:login first)"
+    deps: [docker:push]
+    preconditions:
+      - sh: command -v gh >/dev/null
+        msg: "GitHub CLI not found. Install it: brew install gh"
+      - sh: gh auth status >/dev/null 2>&1
+        msg: "Not logged in to GitHub CLI. Run: gh auth login"
+    cmds:
+      - ./scripts/release-notes.sh v{{.VERSION}} {{.RELEASE_REPO}} > ./RELEASE_NOTES.md
+      - gh release create v{{.VERSION}} --repo {{.RELEASE_REPO}} --title "v{{.VERSION}}" --notes-file ./RELEASE_NOTES.md

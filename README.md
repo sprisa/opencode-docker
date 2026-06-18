@@ -65,12 +65,13 @@ All docker commands go through `task` which reads the pinned version from `versi
 task docker:build                          # Build locally as sprisa/opencode:<version>
 task docker:login                          # Docker Hub login (needs $DOCKER_USER / $DOCKER_PASS)
 task docker:push                           # Push +latest and +<version> for amd64/arm64
+task publish                               # Push, create GitHub Release with auto-generated notes
 ```
 
 ## Updating the opencode version
 
 ```bash
-task update-version
+task update
 ```
 
 Fetches the latest release from [anomalyco/opencode](https://github.com/anomalyco/opencode) on GitHub and writes it to `version.txt`.
