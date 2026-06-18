@@ -1,0 +1,66 @@
+# Taskfile for sprisa/opencode Docker image.
+# Install go-task: https://taskfile.dev/installation/  (brew install go-task)
+# Run `task` (or `task --list`) to see available commands.
+version: "3"
+
+vars:
+  REGISTRY: docker.io
+  OWNER: sprisa
+  IMAGE: opencode
+  REPO: "{{.OWNER}}/{{.IMAGE}}"
+  OCI: "{{.REGISTRY}}/{{.OWNER}}/{{.IMAGE}}"
+  VERSION:
+    sh: cat version.txt | tr -d '[:space:]'
+
+tasks:
+  default:
+    desc: Fetch latest opencode release version from GitHub and update version.txt
+    cmds:
+      - task: update-version
+
+  update-version:
+    desc: Fetch latest opencode release version from GitHub and update version.txt
+    preconditions:
+      - sh: command -v curl >/dev/null
+        msg: "curl not found"
+      - sh: command -v jq >/dev/null
+        msg: "jq not found. Install it: brew install jq"
+    cmds:
+      - |
+        LATEST=$(curl -fsSL https://api.github.com/repos/anomalyco/opencode/releases/latest \
+          | jq -r '.tag_name' | sed 's/^v//')
+        CURRENT=$(cat version.txt | tr -d '[:space:]')
+        if [ "$LATEST" != "$CURRENT" ]; then
+          echo "$LATEST" > version.txt
+          echo "Updated: $CURRENT -> $LATEST"
+        else
+          echo "Already at latest: $CURRENT"
+        fi
+
+  docker:build:
+    desc: "Build the image locally (tag: sprisa/opencode:<version>)"
+    cmds:
+      - "docker build --build-arg OPENCODE_VERSION={{.VERSION}} -t {{.OCI}}:{{.VERSION}} ."
+
+  docker:push:
+    desc: "Build and push multi-arch to Docker Hub with <version> and :latest tags"
+    cmds:
+      - |
+        docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          --build-arg OPENCODE_VERSION={{.VERSION}} \
+          --push \
+          -t {{.OCI}}:{{.VERSION}} \
+          -t {{.OCI}}:latest \
+          .
+      - "echo Pushed {{.OCI}}:{{.VERSION}} and {{.OCI}}:latest"
+
+  docker:login:
+    desc: "Log in to Docker Hub (needs $DOCKER_USER and $DOCKER_PASS)"
+    preconditions:
+      - sh: '[ -n "$DOCKER_USER" ]'
+        msg: "Set DOCKER_USER"
+      - sh: '[ -n "$DOCKER_PASS" ]'
+        msg: "Set DOCKER_PASS (use a Docker Hub access token)"
+    cmds:
+      - "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
