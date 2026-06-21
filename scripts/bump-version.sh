@@ -15,10 +15,7 @@ die() { echo "[bump] error: $*" >&2; exit 1; }
 [ -z "$VERSION" ] && die "version must not be empty"
 
 pr_exists() {
-  local urls
-  urls=$(gh pr list --state open --label "opencode-release" --json url -q '.[].url' \
-    2>/dev/null)
-  [ -n "$urls" ] && echo "$urls" | grep -qi "v${VERSION}"
+  gh pr list --state open --head "$BRANCH" --json url -q '.[].url' 2>/dev/null | grep -q .
 }
 
 create_pr() {
@@ -28,9 +25,7 @@ create_pr() {
   gh pr create \
     --title "$title" \
     --body "$body" \
-    --base "$TARGET" \
-    --label "opencode-release" \
-    --label "automated"
+    --base "$TARGET"
 }
 
 update_pr() {
