@@ -71,16 +71,15 @@ RUN mkdir -p /home/linuxbrew \
   && rm -rf /home/linuxbrew/.linuxbrew/share/doc \
   && rm -rf /home/linuxbrew/.linuxbrew/share/zsh
 
-# 1.5. mise — dev tool manager for pre-approved tools (gh, glab, n, node)
-#     Tools install via Homebrew backend so they live in the brew prefix.
-RUN curl -fsSL https://mise.run | MISE_INSTALL_DIR=/usr/local/bin sh \
+# 1.5. mise — dev tool manager; pre-approved tools defined in the global config
+#     auto-install via Homebrew backend on first use at runtime.
+RUN curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh \
   && mkdir -p /opt/mise /etc/mise
 COPY mise-config.toml /etc/mise/config.toml
-RUN MISE_DATA_DIR=/opt/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/config.toml \
-      mise settings set always_install true \
-  && MISE_DATA_DIR=/opt/mise MISE_GLOBAL_CONFIG_FILE=/etc/mise/config.toml \
-      mise install \
-  && rm -rf /tmp/mise*
+# Pre-install tools via Homebrew (as opencode user) so mise finds them at
+# runtime. n and node are already installed by step 2 below.
+RUN sudo -u opencode HOMEBREW_NO_AUTO_UPDATE=1 \
+      /home/linuxbrew/.linuxbrew/bin/brew install gh glab
 
 # 2. Node.js via `n` — changes when the upstream LTS version bumps
 RUN curl -fsSL -o /usr/local/bin/n https://raw.githubusercontent.com/tj/n/master/bin/n \
@@ -109,6 +108,7 @@ ENV PATH=${N_PREFIX}/bin:/home/opencode/.local/bin:/home/linuxbrew/.linuxbrew/bi
 ENV HOMEBREW_NO_AUTO_UPDATE=1
 ENV MISE_DATA_DIR=/opt/mise
 ENV MISE_GLOBAL_CONFIG_FILE=/etc/mise/config.toml
+ENV MISE_ALWAYS_INSTALL=1
 
 # Runtimes copied from builder (most-stable first so frequent version
 # bumps don't invalidate cache for the other layers).

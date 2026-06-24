@@ -13,9 +13,22 @@ A general-purpose Ubuntu Docker image for running [opencode](https://opencode.ai
 | **Python 3** | pip, venv |
 | **Build tools** | `build-essential`, `pkg-config` (for native npm addons, pip source builds) |
 | **Homebrew** | Linux-native Homebrew (`/home/linuxbrew/.linuxbrew`) — `brew` on PATH |
-| **mise** | Dev tool manager (`mise activate bash`); pre-approved tools (gh, glab, n, node) auto-install via `brew` backend on first use |
+| **mise** | Dev tool manager — tools listed below install on first use via `brew` backend |
 | **CLI utilities** | git, curl, wget, jq, ripgrep, fd-find, vim, nano, less, unzip, ssh client |
 | **Init** | tini as PID 1 (zombie reaping, clean shutdown) |
+
+### Lazy-installed tools
+
+These tools install on first use (via mise → Homebrew):
+
+| Tool | Command | Backend |
+|---|---|---|
+| GitHub CLI | `gh` | brew |
+| GitLab CLI | `glab` | brew |
+
+Add more tools to `/etc/mise/config.toml` to extend the list.
+
+> **Note:** `n` and `node` are also listed in the mise config but are pre-installed in the image — they're included so mise can manage versions if you switch them at runtime.
 
 ## Usage
 
@@ -85,4 +98,4 @@ Fetches the latest release from [anomalyco/opencode](https://github.com/anomalyc
 - `~/.local/bin` is on PATH and user-writable, useful for dropping custom tools at runtime.
 - Node version can be switched at runtime with `n <version>` (e.g. `n lts`).
 - Homebrew is installed under `/home/linuxbrew/.linuxbrew` (outside the persistent volume) and is usable immediately by the `opencode` user.
-- **mise auto-install**: [mise](https://mise.jdx.dev) is activated on shell start. Pre-approved tools (gh, glab, n, node) defined in `/etc/mise/config.toml` auto-install via the `brew` backend on first invocation. Add more tools to the config to extend the list.
+- **Lazy-installed tools** (see table above): run `gh`, `glab`, `n`, or `node` and they install on first use via mise → Homebrew. Edit `/etc/mise/config.toml` to add more auto-install tools.
