@@ -54,7 +54,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl wget git openssh-client unzip xz-utils \
       build-essential pkg-config \
-      python3 python3-pip python3-venv \
+      python3 python3-pip python3-venv ruby \
       ripgrep fd-find jq less nano vim-tiny \
       sudo \
       tini \
@@ -85,6 +85,10 @@ RUN mkdir -p /home/linuxbrew \
       && brew cleanup --prune=all \
       && rm -rf "$(brew --cache)" \
       && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/homebrew/homebrew-core \
+      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/test \
+      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/cache \
+      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/doc \
+      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/portable-ruby \
       && rm -rf /home/linuxbrew/.linuxbrew/share/man \
       && rm -rf /home/linuxbrew/.linuxbrew/share/doc \
       && rm -rf /home/linuxbrew/.linuxbrew/share/zsh'
