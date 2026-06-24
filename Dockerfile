@@ -72,8 +72,7 @@ RUN mkdir -p /home/linuxbrew \
 # 1.5. mise — dev tool manager; pre-approved tools defined in the global config
 #     auto-install via Homebrew backend on first use at runtime.
 RUN curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh \
-  && mkdir -p /opt/mise /etc/mise
-COPY mise-config.toml /etc/mise/config.toml
+  && mkdir -p /opt/mise
 
 # 2. Node.js via `n` — changes when the upstream LTS version bumps
 RUN curl -fsSL -o /usr/local/bin/n https://raw.githubusercontent.com/tj/n/master/bin/n \
@@ -102,7 +101,7 @@ ENV PATH=${N_PREFIX}/bin:/home/opencode/.local/bin:/home/linuxbrew/.linuxbrew/bi
 ENV HOMEBREW_NO_AUTO_UPDATE=1
 ENV HOMEBREW_INSTALL_FROM_API=1
 ENV MISE_DATA_DIR=/opt/mise
-ENV MISE_GLOBAL_CONFIG_FILE=/etc/mise/config.toml
+ENV MISE_GLOBAL_CONFIG_FILE=/home/opencode/.config/mise/config.toml
 ENV MISE_ALWAYS_INSTALL=1
 
 # Runtimes copied from builder (most-stable first so frequent version
@@ -114,7 +113,7 @@ COPY --from=builder /opt/opencode /usr/local/bin/opencode
 # Mise — dev tool manager; auto-installs tools defined in the global config.
 COPY --from=builder /usr/local/bin/mise /usr/local/bin/mise
 COPY --from=builder --chown=opencode:opencode /opt/mise /opt/mise
-COPY --from=builder /etc/mise/config.toml /etc/mise/config.toml
+COPY --chown=opencode:opencode mise-config.toml /home/opencode/.config/mise/config.toml
 
 # Verify runtimes and set up login-shell PATH and auto-install handler
 RUN node --version && npm --version && opencode --version \
