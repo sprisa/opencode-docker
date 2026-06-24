@@ -76,8 +76,11 @@ RUN echo 'opencode ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/opencode \
 
 # Homebrew package manager for Linux — installed system-wide, not under the
 # persistent home volume, so it survives container restarts.
-RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
-  && chown -R opencode:opencode /home/linuxbrew
+# Run as the opencode user because the installer aborts when run as root
+# (and during BuildKit builds it cannot detect it is inside a container).
+RUN mkdir -p /home/linuxbrew \
+  && chown opencode:opencode /home/linuxbrew \
+  && su opencode -c 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
 
 # `n` CLI for runtime Node version switches.
 RUN curl -fsSL -o /usr/local/bin/n https://raw.githubusercontent.com/tj/n/master/bin/n \
