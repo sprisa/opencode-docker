@@ -7,23 +7,45 @@
 # lives under ~/workspace. Node lives in /opt/n (outside home) so it's never
 # shadowed when a volume mounts over the home directory.
 #
-# Multi-stage: the `builder` stage fetches relocatable toolchains (Node via `n`,
-# the opencode binary) so installers and caches never land in the final image.
-# The final stage carries only the runtime: apt dev packages + copied-in Node + opencode.
+# Three-stage build:
+#   base     — apt packages, user, sudo, init — shared by builder and final
+#   builder  — fetches relocatable toolchains (Node, opencode, Homebrew)
+#   final    — copies in runtimes from builder; carries only runtime layers
 
 ARG OPENCODE_VERSION=0.0.0
-# Node lives OUTSIDE /home/opencode so it's never shadowed by a volume mount
-# over the entire home directory. /opt/n stays on the ephemeral image rootfs.
 ARG NODE_PREFIX=/opt/n
 
 # ---------------------------------------------------------------------------
-# builder: fetch Node (via n) + the opencode binary
+# base: common runtime layer (apt, user, sudo, init)
 # ---------------------------------------------------------------------------
-FROM ubuntu:26.04 AS builder
+FROM ubuntu:26.04 AS base
+
 ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl xz-utils bash libatomic1 \
+      ca-certificates curl wget git openssh-client unzip xz-utils \
+      build-essential pkg-config \
+      python3 python3-pip python3-venv ruby \
+      ripgrep fd-find jq less nano vim-tiny \
+      sudo tini open-iscsi tzdata locales \
   && rm -rf /var/lib/apt/lists/*
+
+RUN userdel --remove ubuntu 2>/dev/null || true; \
+    groupdel ubuntu 2>/dev/null || true; \
+    groupadd --gid 1000 opencode \
+  && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash opencode
+
+RUN echo 'opencode ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/opencode \
+  && chmod 0440 /etc/sudoers.d/opencode \
+  && visudo -cf /etc/sudoers.d/opencode
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod 0755 /usr/local/bin/entrypoint.sh
+
+# ---------------------------------------------------------------------------
+# builder: fetch Node, opencode, and Homebrew
+# ---------------------------------------------------------------------------
+FROM base AS builder
 
 ARG NODE_PREFIX
 ENV N_PREFIX=${NODE_PREFIX}
@@ -41,57 +63,38 @@ RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash 
   && chmod 0755 /opt/opencode \
   && /opt/opencode --version
 
+RUN mkdir -p /home/linuxbrew \
+  && chown opencode:opencode /home/linuxbrew \
+  && sudo -u opencode NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+  && sudo -u opencode /home/linuxbrew/.linuxbrew/bin/brew cleanup --prune=all \
+  && sudo -u opencode rm -rf "$(sudo -u opencode /home/linuxbrew/.linuxbrew/bin/brew --cache)" \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/homebrew/homebrew-core \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/test \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/cask \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/cache \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/doc \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/portable-ruby \
+  && rm -rf /home/linuxbrew/.linuxbrew/share/man \
+  && rm -rf /home/linuxbrew/.linuxbrew/share/doc \
+  && rm -rf /home/linuxbrew/.linuxbrew/share/zsh
+
 # ---------------------------------------------------------------------------
-# final: the sandbox runtime
+# final: runtime image
 # ---------------------------------------------------------------------------
-FROM ubuntu:26.04
+FROM base
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-# General-purpose toolchain: VCS, build tools, common languages + CLI utilities.
-# `sudo` lets the sandbox user install system packages at runtime.
-# `build-essential`/`pkg-config` support native npm addons and pip source builds.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl wget git openssh-client unzip xz-utils \
-      build-essential pkg-config \
-      python3 python3-pip python3-venv \
-      ripgrep fd-find jq less nano vim-tiny \
-      sudo \
-      tini \
-      open-iscsi \
-      tzdata locales \
-  && rm -rf /var/lib/apt/lists/*
-
-# Unprivileged runtime user; uid/gid 1000.
-RUN userdel --remove ubuntu 2>/dev/null || true; \
-    groupdel ubuntu 2>/dev/null || true; \
-    groupadd --gid 1000 opencode \
-  && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash opencode
-
-# Passwordless sudo. The root filesystem is ephemeral — apt-installed packages
-# are lost on container restart; only /home/opencode (the persistent mount) keeps data.
-RUN echo 'opencode ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/opencode \
-  && chmod 0440 /etc/sudoers.d/opencode \
-  && visudo -cf /etc/sudoers.d/opencode
-
-# `n` CLI for runtime Node version switches.
-RUN curl -fsSL -o /usr/local/bin/n https://raw.githubusercontent.com/tj/n/master/bin/n \
-  && chmod 0755 /usr/local/bin/n
 ARG NODE_PREFIX
 ENV N_PREFIX=${NODE_PREFIX}
-ENV PATH=${N_PREFIX}/bin:/home/opencode/.local/bin:${PATH}
+ENV PATH=${N_PREFIX}/bin:/home/opencode/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 
-# Toolchains from builder (no installer residue).
 COPY --from=builder --chown=opencode:opencode ${NODE_PREFIX} ${NODE_PREFIX}
 COPY --from=builder /opt/opencode /usr/local/bin/opencode
+COPY --from=builder --chown=opencode:opencode /home/linuxbrew /home/linuxbrew
+
 RUN node --version && npm --version && opencode --version
 
-# Ensure login shells pick up NODE_PREFIX on PATH.
-RUN printf 'export N_PREFIX=%s\nfor d in "$N_PREFIX/bin" "$HOME/.local/bin"; do case ":$PATH:" in *":$d:"*) ;; *) PATH="$d:$PATH";; esac; done\nexport PATH\n' "${N_PREFIX}" > /etc/profile.d/node-path.sh \
+RUN printf 'export N_PREFIX=%s\nfor d in "$N_PREFIX/bin" "$HOME/.local/bin" "/home/linuxbrew/.linuxbrew/bin" "/home/linuxbrew/.linuxbrew/sbin"; do case ":$PATH:" in *":$d:"*) ;; *) PATH="$d:$PATH";; esac; done\nexport PATH\n' "${N_PREFIX}" > /etc/profile.d/node-path.sh \
   && chmod 0644 /etc/profile.d/node-path.sh
-
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod 0755 /usr/local/bin/entrypoint.sh
 
 USER opencode
 ENV HOME=/home/opencode
@@ -99,5 +102,4 @@ WORKDIR /home/opencode/workspace
 
 EXPOSE 4096
 
-# tini as PID 1 for zombie reaping and clean signal forwarding.
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
