@@ -32,7 +32,6 @@ These tools install on first use (via mise → Homebrew):
 | Micro | `micro` | brew |
 | Nano | `nano` | brew |
 | Python 3 | `python3` | brew |
-| n | `n` | brew |
 | Node.js | `node` | brew |
 
 The image ships with a system config at `/etc/mise/config.toml` with these pre-approved tools. Users can add or override tools by creating `~/.config/mise/config.toml` — mise merges both.
