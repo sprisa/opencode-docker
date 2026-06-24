@@ -50,8 +50,10 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh
 
 # ---------------------------------------------------------------------------
-# builder: fetch Node, opencode, and Homebrew (layers are ephemeral —
-# only what's explicitly COPIED to final lands in the runtime image)
+# builder: fetch relocatable toolchains (layers are ephemeral —
+# only what's explicitly COPIED to final lands in the runtime image).
+# Order: most-stable first, so frequent version bumps don't bust the
+# cache of the other toolchains.
 # ---------------------------------------------------------------------------
 FROM base AS builder
 
@@ -59,23 +61,8 @@ ARG NODE_PREFIX
 ENV N_PREFIX=${NODE_PREFIX}
 ENV PATH=${NODE_PREFIX}/bin:${PATH}
 
-# Node.js via `n` (version manager)
-RUN curl -fsSL -o /usr/local/bin/n https://raw.githubusercontent.com/tj/n/master/bin/n \
-  && chmod 0755 /usr/local/bin/n \
-  && mkdir -p "${N_PREFIX}" \
-  && n install --cleanup current \
-  && node --version && npm --version
-
-ARG OPENCODE_VERSION
-
-# opencode server binary
-RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash \
-  && (cp /root/.opencode/bin/opencode /opt/opencode 2>/dev/null \
-      || cp "$HOME/.opencode/bin/opencode" /opt/opencode) \
-  && chmod 0755 /opt/opencode \
-  && /opt/opencode --version
-
-# Homebrew package manager — install and strip unnecessary data
+# 1. Homebrew — the install script URL is stable; brew releases rarely
+#    invalidate the layer once installed.
 RUN mkdir -p /home/linuxbrew \
   && chown opencode:opencode /home/linuxbrew \
   && sudo -u opencode NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
@@ -91,6 +78,22 @@ RUN mkdir -p /home/linuxbrew \
   && rm -rf /home/linuxbrew/.linuxbrew/share/doc \
   && rm -rf /home/linuxbrew/.linuxbrew/share/zsh
 
+# 2. Node.js via `n` — changes when the upstream LTS version bumps
+RUN curl -fsSL -o /usr/local/bin/n https://raw.githubusercontent.com/tj/n/master/bin/n \
+  && chmod 0755 /usr/local/bin/n \
+  && mkdir -p "${N_PREFIX}" \
+  && n install --cleanup current \
+  && node --version && npm --version
+
+ARG OPENCODE_VERSION
+
+# 3. opencode server binary — changes on every version bump (most frequent)
+RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash \
+  && (cp /root/.opencode/bin/opencode /opt/opencode 2>/dev/null \
+      || cp "$HOME/.opencode/bin/opencode" /opt/opencode) \
+  && chmod 0755 /opt/opencode \
+  && /opt/opencode --version
+
 # ---------------------------------------------------------------------------
 # final: runtime image — only the base layer plus copied-in toolchains
 # ---------------------------------------------------------------------------
@@ -100,10 +103,11 @@ ARG NODE_PREFIX
 ENV N_PREFIX=${NODE_PREFIX}
 ENV PATH=${N_PREFIX}/bin:/home/opencode/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 
-# Runtimes copied from builder (no installer residue)
+# Runtimes copied from builder (most-stable first so frequent version
+# bumps don't invalidate cache for the other layers).
+COPY --from=builder --chown=opencode:opencode /home/linuxbrew /home/linuxbrew
 COPY --from=builder --chown=opencode:opencode ${NODE_PREFIX} ${NODE_PREFIX}
 COPY --from=builder /opt/opencode /usr/local/bin/opencode
-COPY --from=builder --chown=opencode:opencode /home/linuxbrew /home/linuxbrew
 
 # Verify runtimes and set up login-shell PATH
 RUN node --version && npm --version && opencode --version \
