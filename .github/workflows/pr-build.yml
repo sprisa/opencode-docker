@@ -136,28 +136,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR_NUM="${{ github.event.number }}"
-          BASELINE="${{ steps.baseline-size.outputs.human }}"
-          CURRENT="${{ steps.pr-size.outputs.human }}"
-          DIFF="${{ steps.compare.outputs.diff-bytes }}"
-
           BODY=$(cat <<EOF
           ## Docker image size comparison
 
           | Image | Size |
           |---|---|
-          | Baseline (main) | $BASELINE |
-          | This PR | $CURRENT |
-          | **Difference** | **${DIFF} bytes** |
+          | Baseline (main) | ${{ steps.baseline-size.outputs.human }} |
+          | This PR | ${{ steps.pr-size.outputs.human }} |
+          | **Difference** | **${{ steps.compare.outputs.diff-bytes }} bytes** |
           EOF
           )
-
-          COMMENT_ID=$(gh api "/repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
-            --jq '.[] | select(.user.login == "github-actions[bot]") | .id' | head -1)
-
-          if [ -n "$COMMENT_ID" ]; then
-            gh api "/repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
-              -X PATCH -f body="$BODY" --silent
-          else
-            gh pr comment "$PR_NUM" --body "$BODY"
-          fi
+          cd head
+          gh pr comment "${{ github.event.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "$BODY" --edit-last 2>/dev/null \
+          || gh pr comment "${{ github.event.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "$BODY"
