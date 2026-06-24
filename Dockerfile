@@ -101,7 +101,11 @@ COPY mise-config.toml /etc/mise/config.toml
 RUN opencode --version \
   && printf 'for d in "$HOME/.local/bin" "/home/linuxbrew/.linuxbrew/bin" "/home/linuxbrew/.linuxbrew/sbin"; do case ":$PATH:" in *":$d:"*) ;; *) PATH="$d:$PATH";; esac; done\nexport PATH\n' > /etc/profile.d/brew-path.sh \
   && chmod 0644 /etc/profile.d/brew-path.sh \
-  && printf '\neval "$(mise activate bash --shims)"\n' >> /home/opencode/.bashrc
+  && printf '\neval "$(mise activate bash --shims)"\n' >> /home/opencode/.bashrc \
+  && printf '\neval "$(mise activate zsh --shims)"\n' >> /home/opencode/.zshrc \
+  && mkdir -p /home/opencode/.config/fish \
+  && printf '\nmise activate fish --shims | source\n' >> /home/opencode/.config/fish/config.fish \
+  && printf '\neval "$(mise activate sh --shims)"\n' >> /home/opencode/.profile
 
 USER opencode
 ENV HOME=/home/opencode
