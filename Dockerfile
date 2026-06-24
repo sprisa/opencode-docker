@@ -60,8 +60,6 @@ RUN mkdir -p /home/linuxbrew \
   && sudo -u opencode NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
   && sudo -u opencode /home/linuxbrew/.linuxbrew/bin/brew cleanup --prune=all \
   && sudo -u opencode rm -rf "$(sudo -u opencode /home/linuxbrew/.linuxbrew/bin/brew --cache)" \
-  && sudo -u opencode HOMEBREW_NO_AUTO_UPDATE=1 \
-      /home/linuxbrew/.linuxbrew/bin/brew install gh glab \
   && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/test \
   && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/cask \
   && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/cache \
