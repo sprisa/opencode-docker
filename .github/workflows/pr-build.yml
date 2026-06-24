@@ -6,6 +6,10 @@ on:
   workflow_dispatch:
   pull_request:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build:
     name: Build and report size
@@ -36,7 +40,9 @@ jobs:
 
       - name: Record baseline size
         id: baseline-size
-        run: echo "size=$(docker images sprisa/opencode:baseline --format '{{.Size}}')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "human=$(docker images sprisa/opencode:baseline --format '{{.Size}}')" >> "$GITHUB_OUTPUT"
+          echo "bytes=$(docker image inspect sprisa/opencode:baseline --format '{{.Size}}')" >> "$GITHUB_OUTPUT"
 
       - name: Checkout PR head
         uses: actions/checkout@v4
@@ -67,41 +73,84 @@ jobs:
           build-args: OPENCODE_VERSION=${{ steps.version-pr.outputs.version }}
           tags: sprisa/opencode:pr-${{ github.event.number || 'manual' }}
 
-      - name: Compare and report image sizes
+      - name: Record PR size
+        id: pr-size
         run: |
-          TAG="pr-${{ github.event.number || 'manual' }}"
-          BASELINE="${{ steps.baseline-size.outputs.size }}"
-          CURRENT=$(docker images "sprisa/opencode:${TAG}" --format "{{.Size}}")
+          echo "human=$(docker images sprisa/opencode:pr-${{ github.event.number || 'manual' }} --format '{{.Size}}')" >> "$GITHUB_OUTPUT"
+          echo "bytes=$(docker image inspect sprisa/opencode:pr-${{ github.event.number || 'manual' }} --format '{{.Size}}')" >> "$GITHUB_OUTPUT"
 
-          baseline_bytes=$(echo "$BASELINE" | numfmt --from=iec 2>/dev/null || echo 0)
-          current_bytes=$(echo "$CURRENT" | numfmt --from=iec 2>/dev/null || echo 0)
-          diff=$(( current_bytes - baseline_bytes ))
-          if [ "$diff" -ge 0 ]; then sign="+"; else sign=""; fi
+      - name: Compare and report image sizes
+        id: compare
+        run: |
+          PR_NUM="${{ github.event.number }}"
+          BASELINE_HUMAN="${{ steps.baseline-size.outputs.human }}"
+          BASELINE_BYTES=${{ steps.baseline-size.outputs.bytes }}
+          PR_HUMAN="${{ steps.pr-size.outputs.human }}"
+          PR_BYTES=${{ steps.pr-size.outputs.bytes }}
+          DIFF_BYTES=$(( PR_BYTES - BASELINE_BYTES ))
 
-          echo "## Image size comparison" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Image | Size |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Baseline (main) | $BASELINE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| This PR | $CURRENT |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Difference | ${sign}${diff} bytes |" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Baseline layers" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Layer | Size |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          docker history sprisa/opencode:baseline \
-            --format "| {{.CreatedSince}} | {{.Size}} |" \
-            --no-trunc | tail -n +2 >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### PR layers" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Layer | Size |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          docker history "sprisa/opencode:${TAG}" \
-            --format "| {{.CreatedSince}} | {{.Size}} |" \
-            --no-trunc | tail -n +2 >> "$GITHUB_STEP_SUMMARY"
+          if [ "$DIFF_BYTES" -ge 0 ]; then
+            SIGN="+"
+            COLOR="red"
+          else
+            SIGN=""
+            COLOR="green"
+          fi
 
-          echo "baseline: $BASELINE"
-          echo "pr: $CURRENT"
-          echo "diff: ${sign}${diff} bytes"
+          {
+            echo "## Docker image size comparison"
+            echo ""
+            echo "| Image | Size |"
+            echo "|---|---|"
+            echo "| Baseline (main) | $BASELINE_HUMAN |"
+            echo "| This PR | $PR_HUMAN |"
+            echo "| **Difference** | **${SIGN}${DIFF_BYTES} bytes** |"
+            echo ""
+            echo "### Baseline layers"
+            echo ""
+            echo "| Layer | Size |"
+            echo "|---|---|"
+            docker history sprisa/opencode:baseline \
+              --format "| {{.CreatedSince}} | {{.Size}} |" \
+              --no-trunc | tail -n +2
+            echo ""
+            echo "### PR layers"
+            echo ""
+            echo "| Layer | Size |"
+            echo "|---|---|"
+            docker history "sprisa/opencode:pr-${PR_NUM}" \
+              --format "| {{.CreatedSince}} | {{.Size}} |" \
+              --no-trunc | tail -n +2
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "baseline: $BASELINE_HUMAN ($BASELINE_BYTES bytes)"
+          echo "pr: $PR_HUMAN ($PR_BYTES bytes)"
+          echo "diff: ${SIGN}${DIFF_BYTES} bytes"
+
+          echo "diff-bytes=${SIGN}${DIFF_BYTES}" >> "$GITHUB_OUTPUT"
+          echo "pr-human=${PR_HUMAN}" >> "$GITHUB_OUTPUT"
+          echo "baseline-human=${BASELINE_HUMAN}" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUM="${{ github.event.number }}"
+          BASELINE="${{ steps.baseline-size.outputs.human }}"
+          CURRENT="${{ steps.pr-size.outputs.human }}"
+          DIFF="${{ steps.compare.outputs.diff-bytes }}"
+
+          BODY=$(cat <<EOF
+          ## Docker image size comparison
+
+          | Image | Size |
+          |---|---|
+          | Baseline (main) | $BASELINE |
+          | This PR | $CURRENT |
+          | **Difference** | **${DIFF} bytes** |
+          EOF
+          )
+
+          gh pr comment "$PR_NUM" --body "$BODY" --edit-last 2>/dev/null \
+            || gh pr comment "$PR_NUM" --body "$BODY"
