@@ -81,7 +81,7 @@ RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash 
 # ---------------------------------------------------------------------------
 FROM base
 
-ENV PATH=/home/opencode/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/opt/mise/shims:${PATH}
+ENV PATH=/home/opencode/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/opt/auto-install-shims:${PATH}
 ENV HOMEBREW_NO_AUTO_UPDATE=1
 ENV HOMEBREW_INSTALL_FROM_API=1
 ENV MISE_DATA_DIR=/opt/mise
@@ -106,14 +106,14 @@ RUN opencode --version \
   && mkdir -p /home/opencode/.config/fish \
   && printf '\nmise activate fish | source\n' >> /home/opencode/.config/fish/config.fish \
   && printf '\neval "$(mise activate sh)"\n' >> /home/opencode/.profile \
-  && mkdir -p /opt/mise/shims \
+  && mkdir -p /opt/auto-install-shims \
   && grep -E '^\s*"' /etc/mise/config.toml | while IFS='=' read -r key value; do \
        key="$(echo "$key" | tr -d ' "')" \
      && shim="${key#*:}" \
-     && printf '#!/usr/bin/env bash\nexec /usr/local/bin/mise exec "%s" -- %s "$@"\n' "$key" "$shim" > "/opt/mise/shims/$shim" \
-     && chmod 0755 "/opt/mise/shims/$shim"; \
+     && printf '#!/usr/bin/env bash\nexec /usr/local/bin/mise exec "%s" -- %s "$@"\n' "$key" "$shim" > "/opt/auto-install-shims/$shim" \
+     && chmod 0755 "/opt/auto-install-shims/$shim"; \
      done \
-  && chown -R opencode:opencode /opt/mise/shims
+  && chown -R opencode:opencode /opt/auto-install-shims
 
 USER opencode
 ENV HOME=/home/opencode
