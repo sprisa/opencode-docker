@@ -83,4 +83,4 @@ Fetches the latest release from [anomalyco/opencode](https://github.com/anomalyc
 - The root filesystem is ephemeral; mount `/home/opencode` as the persistent volume for all user data (dotfiles, config, projects). The `~/workspace` subdirectory is the default workdir.
 - `~/.local/bin` is on PATH and user-writable, useful for dropping custom tools at runtime.
 - Node version can be switched at runtime with `n <version>` (e.g. `n lts`).
-- Homebrew is installed under `/home/linuxbrew/.linuxbrew` (outside the persistent volume) and is usable immediately by the `opencode` user. Packages installed with `brew` are also ephemeral — they persist only for the container's lifetime.
+- Homebrew is installed under `/home/linuxbrew/.linuxbrew` (outside the persistent volume) and is usable immediately by the `opencode` user.
