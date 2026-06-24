@@ -49,19 +49,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo \
   && chmod 0440 /etc/sudoers.d/opencode \
   && mkdir -p /home/linuxbrew \
   && chown opencode:opencode /home/linuxbrew \
-  && su opencode -c 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' \
-  && su opencode -c 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" \
-      && brew cleanup --prune=all \
-      && rm -rf "$(brew --cache)" \
-      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/homebrew/homebrew-core \
-      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/test \
-      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/cask \
-      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/cache \
-      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/doc \
-      && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/portable-ruby \
-      && rm -rf /home/linuxbrew/.linuxbrew/share/man \
-      && rm -rf /home/linuxbrew/.linuxbrew/share/doc \
-      && rm -rf /home/linuxbrew/.linuxbrew/share/zsh'
+  && sudo -u opencode NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+  && sudo -u opencode /home/linuxbrew/.linuxbrew/bin/brew cleanup --prune=all \
+  && sudo -u opencode rm -rf "$(sudo -u opencode /home/linuxbrew/.linuxbrew/bin/brew --cache)" \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/homebrew/homebrew-core \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/test \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/cask \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/cache \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/doc \
+  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/portable-ruby \
+  && rm -rf /home/linuxbrew/.linuxbrew/share/man \
+  && rm -rf /home/linuxbrew/.linuxbrew/share/doc \
+  && rm -rf /home/linuxbrew/.linuxbrew/share/zsh
 
 # ---------------------------------------------------------------------------
 # final: the sandbox runtime
