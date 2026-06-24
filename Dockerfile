@@ -65,7 +65,8 @@ RUN mkdir -p /home/linuxbrew \
 # 1.5. mise — dev tool manager; pre-approved tools defined in the global config
 #     auto-install via Homebrew backend on first use at runtime.
 RUN curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh \
-  && mkdir -p /opt/mise
+  && mkdir -p /opt/mise \
+  && MISE_DATA_DIR=/opt/mise mise plugins install brew https://github.com/woutermont/mise-brew
 
 ARG OPENCODE_VERSION
 
