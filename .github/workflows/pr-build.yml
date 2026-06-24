@@ -1,0 +1,44 @@
+# Build the Docker image on pull requests and report its size.
+name: PR build
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - entrypoint.sh
+      - version.txt
+      - .github/workflows/pr-build.yml
+
+jobs:
+  build:
+    name: Build and report size
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: sprisa/opencode:pr-${{ github.event.number }}
+
+      - name: Report image size
+        run: |
+          SIZE=$(docker images sprisa/opencode:pr-${{ github.event.number }} --format "{{.Size}}")
+          echo "### Image size: $SIZE" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Layer | Size |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          docker history sprisa/opencode:pr-${{ github.event.number }} \
+            --format "| {{.CreatedSince}} | {{.Size}} |" \
+            --no-trunc \
+            | tail -n +2 >> "$GITHUB_STEP_SUMMARY"
+          echo "built: $SIZE"
