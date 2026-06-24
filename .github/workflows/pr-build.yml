@@ -49,7 +49,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           git -C head fetch origin "${{ github.base_ref }}" --depth=1
-          CHANGED=$(git -C head diff --name-only "origin/${{ github.base_ref }}"..."${{ github.head_ref }}" -- Dockerfile version.txt entrypoint.sh)
+          CHANGED=$(git -C head diff "origin/${{ github.base_ref }}" HEAD --name-only -- Dockerfile version.txt entrypoint.sh)
           if [ -n "$CHANGED" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
