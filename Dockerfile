@@ -24,11 +24,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # General dev toolchain: VCS, build tools, languages, CLI utilities.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl wget git openssh-client unzip xz-utils \
+      ca-certificates curl git openssh-client unzip xz-utils \
       build-essential pkg-config \
-      python3 python3-pip python3-venv ruby \
-      ripgrep fd-find jq less nano vim-tiny \
-      sudo tini open-iscsi tzdata locales \
+      python3 python3-pip python3-venv \
+      less sudo tini open-iscsi tzdata locales \
   && rm -rf /var/lib/apt/lists/* \
   && userdel --remove ubuntu 2>/dev/null || true; \
      groupdel ubuntu 2>/dev/null || true; \
@@ -61,11 +60,12 @@ RUN mkdir -p /home/linuxbrew \
   && sudo -u opencode NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
   && sudo -u opencode /home/linuxbrew/.linuxbrew/bin/brew cleanup --prune=all \
   && sudo -u opencode rm -rf "$(sudo -u opencode /home/linuxbrew/.linuxbrew/bin/brew --cache)" \
+  && sudo -u opencode HOMEBREW_NO_AUTO_UPDATE=1 \
+      /home/linuxbrew/.linuxbrew/bin/brew install gh glab \
   && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/test \
   && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/cask \
   && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/cache \
   && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/*/doc \
-  && rm -rf /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/portable-ruby \
   && rm -rf /home/linuxbrew/.linuxbrew/share/man \
   && rm -rf /home/linuxbrew/.linuxbrew/share/doc \
   && rm -rf /home/linuxbrew/.linuxbrew/share/zsh \
@@ -76,10 +76,6 @@ RUN mkdir -p /home/linuxbrew \
 RUN curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh \
   && mkdir -p /opt/mise /etc/mise
 COPY mise-config.toml /etc/mise/config.toml
-# Pre-install tools via Homebrew (as opencode user) so mise finds them at
-# runtime. n and node are already installed by step 2 below.
-RUN sudo -u opencode HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_INSTALL_FROM_API=1 \
-      /home/linuxbrew/.linuxbrew/bin/brew install gh glab
 
 # 2. Node.js via `n` — changes when the upstream LTS version bumps
 RUN curl -fsSL -o /usr/local/bin/n https://raw.githubusercontent.com/tj/n/master/bin/n \
