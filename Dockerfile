@@ -82,6 +82,9 @@ RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash 
 # ---------------------------------------------------------------------------
 FROM base
 
+ARG OPENCODE_VERSION
+ARG IMAGE_CREATED
+
 ENV PATH=/home/opencode/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/opt/auto-install-shims:${PATH}
 ENV HOMEBREW_NO_AUTO_UPDATE=1
 ENV HOMEBREW_INSTALL_FROM_API=1

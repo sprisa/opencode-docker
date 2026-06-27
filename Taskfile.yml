@@ -41,7 +41,7 @@ tasks:
   docker:build:
     desc: "Build the image locally (tag: sprisa/opencode:<version>)"
     cmds:
-      - "docker build --build-arg OPENCODE_VERSION={{.VERSION}} -t {{.OCI}}:{{.VERSION}} ."
+      - docker build --build-arg OPENCODE_VERSION={{.VERSION}} --build-arg IMAGE_CREATED="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" -t {{.OCI}}:{{.VERSION}} .
 
   docker:push:
     desc: "Build and push multi-arch to Docker Hub with <version> and :latest tags"
@@ -50,6 +50,7 @@ tasks:
         docker buildx build \
           --platform linux/amd64,linux/arm64 \
           --build-arg OPENCODE_VERSION={{.VERSION}} \
+          --build-arg IMAGE_CREATED="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
           --push \
           -t {{.OCI}}:{{.VERSION}} \
           -t {{.OCI}}:latest \
