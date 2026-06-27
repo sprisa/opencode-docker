@@ -5,7 +5,7 @@
 
 
 
-A general-purpose Ubuntu Docker image for running [opencode](https://opencode.ai). Published to Docker Hub as `sprisa/opencode:<version>` where `<version>` matches the release pinned in `version.txt`.
+A general-purpose Ubuntu Docker image for running [opencode](https://github.com/anomalyco/opencode). Published to Docker Hub as `sprisa/opencode:<version>` where `<version>` matches the release pinned in `version.txt`.
 
 ## What's inside
 
