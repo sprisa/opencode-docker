@@ -12,6 +12,7 @@
 #   final    — copies in runtimes from builder; carries only runtime layers
 
 ARG OPENCODE_VERSION=0.0.0
+ARG IMAGE_CREATED="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
 # ---------------------------------------------------------------------------
 # base: common runtime layer (apt, user, sudo, init)
@@ -22,13 +23,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # General dev toolchain: VCS, build tools, languages, CLI utilities.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl git openssh-client unzip xz-utils \
-      build-essential jq pkg-config \
-      less sudo tini tzdata locales \
+  ca-certificates curl git openssh-client unzip xz-utils \
+  build-essential jq pkg-config \
+  less sudo tini tzdata locales \
   && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb \
   && userdel --remove ubuntu 2>/dev/null || true; \
-     groupdel ubuntu 2>/dev/null || true; \
-     groupadd --gid 1000 opencode \
+  groupdel ubuntu 2>/dev/null || true; \
+  groupadd --gid 1000 opencode \
   && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash opencode \
   && echo 'opencode ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/opencode \
   && chmod 0440 /etc/sudoers.d/opencode \
@@ -72,7 +73,7 @@ ARG OPENCODE_VERSION
 # 2. opencode server binary — changes on every version bump (most frequent)
 RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash \
   && (cp /root/.opencode/bin/opencode /opt/opencode 2>/dev/null \
-      || cp "$HOME/.opencode/bin/opencode" /opt/opencode) \
+  || cp "$HOME/.opencode/bin/opencode" /opt/opencode) \
   && chmod 0755 /opt/opencode \
   && /opt/opencode --version
 
@@ -81,11 +82,27 @@ RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash 
 # ---------------------------------------------------------------------------
 FROM base
 
+ARG OPENCODE_VERSION
+ARG IMAGE_CREATED
+
 ENV PATH=/home/opencode/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/opt/auto-install-shims:${PATH}
 ENV HOMEBREW_NO_AUTO_UPDATE=1
 ENV HOMEBREW_INSTALL_FROM_API=1
 ENV MISE_DATA_DIR=/opt/mise
 ENV MISE_ALWAYS_INSTALL=1
+
+LABEL io.artifacthub.package.readme-url="https://raw.githubusercontent.com/sprisa/opencode-server/refs/heads/main/README.md" \
+  org.opencontainers.image.created="${IMAGE_CREATED}" \
+  org.opencontainers.image.description="Opencode server for general-purpose agent development. Supports web desktop & server mode." \
+  org.opencontainers.image.documentation="https://github.com/sprisa/opencode-server" \
+  org.opencontainers.image.source="https://github.com/sprisa/opencode-server" \
+  org.opencontainers.image.title="opencode-server" \
+  org.opencontainers.image.url="https://github.com/sprisa/opencode-server" \
+  org.opencontainers.image.vendor="Sprisa Inc" \
+  org.opencontainers.image.version="${OPENCODE_VERSION}" \
+  io.artifacthub.package.license="MPL-2.0" \
+  io.artifacthub.package.maintainers='[{"name":"Gabriel Meola","email":"banter@gabe.mx"}]' \
+  io.artifacthub.package.keywords="opencode,server,docker,ai,code,editor,development"
 
 # Runtimes copied from builder (most-stable first so frequent version
 # bumps don't invalidate cache for the other layers).
@@ -108,11 +125,11 @@ RUN opencode --version \
   && printf '\neval "$(mise activate sh)"\n' >> /home/opencode/.profile \
   && mkdir -p /opt/auto-install-shims \
   && grep -E '^\s*"' /etc/mise/config.toml | while IFS='=' read -r key value; do \
-       key="$(echo "$key" | tr -d ' "')" \
-     && shim="${key#*:}" \
-     && printf '#!/usr/bin/env bash\nexec /usr/local/bin/mise exec "%s" -- %s "$@"\n' "$key" "$shim" > "/opt/auto-install-shims/$shim" \
-     && chmod 0755 "/opt/auto-install-shims/$shim"; \
-     done \
+  key="$(echo "$key" | tr -d ' "')" \
+  && shim="${key#*:}" \
+  && printf '#!/usr/bin/env bash\nexec /usr/local/bin/mise exec "%s" -- %s "$@"\n' "$key" "$shim" > "/opt/auto-install-shims/$shim" \
+  && chmod 0755 "/opt/auto-install-shims/$shim"; \
+  done \
   && chown -R opencode:opencode /opt/auto-install-shims
 
 USER opencode
