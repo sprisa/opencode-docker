@@ -130,7 +130,9 @@ RUN opencode --version \
   && printf '#!/usr/bin/env bash\nexec /usr/local/bin/mise exec "%s" -- %s "$@"\n' "$key" "$shim" > "/opt/auto-install-shims/$shim" \
   && chmod 0755 "/opt/auto-install-shims/$shim"; \
   done \
-  && chown -R opencode:opencode /opt/auto-install-shims
+  && chown -R opencode:opencode /opt/auto-install-shims \
+  && mkdir -p /home/opencode/workspace \
+  && chown -R opencode:opencode /home/opencode
 
 USER opencode
 ENV HOME=/home/opencode
