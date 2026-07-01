@@ -47,16 +47,16 @@ jobs:
           echo "::notice::Version is up to date ($(cat version.txt | tr -d '[:space:]'))"
           exit 0
 
-      - name: Rebase PR branch on latest main
+      - name: Reset PR branch to latest main
         if: steps.latest.outputs.version != steps.current.outputs.version
         env:
           PR_VERSION: ${{ steps.latest.outputs.version }}
         run: |
           PR_BRANCH="pr/opencode-release/v${PR_VERSION}"
           git fetch origin "${{ env.TARGET_BRANCH }}"
-          git checkout "$PR_BRANCH" 2>/dev/null || git checkout -b "$PR_BRANCH"
-          git rebase "origin/${{ env.TARGET_BRANCH }}"
-          git push origin "$PR_BRANCH" --force-with-lease
+          git branch -D "$PR_BRANCH" 2>/dev/null || true
+          git checkout -b "$PR_BRANCH" "origin/${{ env.TARGET_BRANCH }}"
+          git push origin "$PR_BRANCH" --force
 
       - name: Bump and create PR
         if: steps.latest.outputs.version != steps.current.outputs.version
